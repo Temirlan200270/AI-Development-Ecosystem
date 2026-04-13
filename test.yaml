@@ -1,0 +1,26 @@
+project:
+  name: "QualityFastAPI"
+
+execution_plan:
+  - id: "create_structure"
+    description: "Create directories 'src' and 'tests' using Python's pathlib library."
+    executor: "CODER"
+
+  - id: "generate_app_code"
+    description: "Create the file 'src/main.py' with a simple FastAPI server that returns {'message': 'Hello, World!'} on the root endpoint ('/')."
+    executor: "CODER"
+    dependencies: ["create_structure"]
+
+  - id: "review_app_code"
+    description: "Review the code in the file 'src/main.py'. Check for bugs, style issues (PEP8), and clarity. Provide feedback as a list of points."
+    executor: "REVIEWER"
+
+  - id: "generate_app_tests"
+    description: "Create a test file 'tests/test_main.py' with a simple pytest test for the FastAPI app in 'src/main.py'. The test should check that the root endpoint '/' returns a 200 OK status code and the correct JSON message. IMPORTANT: The test must match the EXACT message from the code (including punctuation and spacing)."
+    executor: "CODER"
+    dependencies: ["generate_app_code"]
+
+  - id: "run_all_tests"
+    description: "Generate the shell command required to install all necessary dependencies (including fastapi, pytest, httpx) and run all tests in the 'tests' directory."
+    executor: "TESTER"
+    dependencies: ["generate_app_tests"]

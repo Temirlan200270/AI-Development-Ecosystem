@@ -1,0 +1,1312 @@
+=============================================================================
+ANDROMEDA / TEMIR ORCHESTRA — VERSION 9.2 (UI client strategy)
+Codename: "Orchestra Pipeline — Autonomy + Experience + Phased UI"
+Description:
+Полная спецификация AI-CLI (Andromeda) с асинхронной мультиагентностью,
+оптимизированная для работы на Windows (без WSL). Использует IOCP
+для IO-задач, multiprocessing для CPU, Fuzzy Patching для надежности
+и Token Bucket для контроля расходов API.
+v9.0: autonomy loop, memory, experience RAG++, decision_engine, reflection, execution_modes.
+v9.1: knowledge_compression, exploration_vs_exploitation, causal_layer, execution_memory,
+quality_gates, model_router dynamic_learning (пер-task метрики).
+v9.2: поэтапный UI — Web debug MVP → Flutter Desktop → Mobile companion; Flutter как клиент,
+не core; ограничения железа; Debug Control Panel (pipeline, logs, diff, taxi meter, decision inspector).
+=============================================================================
+
+metadata:
+  name: andromeda_orchestra
+  version: "9.2"
+  codename: "Orchestra Pipeline — Windows Native + Autonomy"
+  platform_target: "Windows 10/11 (Native)"
+  updated: "2026-04-13"
+  author: "Temir / assistant spec"
+  license: "proprietary/planned-open-core"
+
+---------------------------------------------------------------------
+PHILOSOPHY
+---------------------------------------------------------------------
+
+philosophy:
+  "Windows-First Efficiency: Native asyncio (IOCP) over emulation."
+  "Tool-augmented multi-agent engineering: agents interact through well-defined tools."
+  "Safe, incremental edits: atomic patches, backups, dry-run, rollbacks."
+  "Self-evolving with Safety: evolution requires Golden Snapshot fallbacks."
+  "Observable & debugable: structured logs, traces, and visible cost metering."
+
+---------------------------------------------------------------------
+ECOSYSTEM LAYERS (Infrastructure / Intelligence / Interface)
+---------------------------------------------------------------------
+
+ecosystem_layers:
+  infrastructure:
+    purpose: "Запуск, конфигурация, хранение, песочницы, CI/CD-хуки, DAG-планировщик."
+    includes:
+      - "CLI (temir) + YAML-спеки + Token Bucket / cost"
+      - "Docker / subprocess / local unsafe sandbox (конфигурируемо)"
+      - "Снимки, патчи, логи, артефакты"
+  intelligence:
+    purpose: "Агенты, RAG, промпты, инструменты, граф задач, супервизор, автономный цикл, опыт."
+    includes:
+      - "Ролевые агенты (Architect, Coder, Reviewer, Tester, Supervisor, Experience)"
+      - "Индекс репозитория + семантический поиск + типизированная подмешка контекста + experience_fix/anti_pattern"
+      - "Task graph (DAG) и иерархия goal → epic → task → subtask → action"
+      - "Autonomy loop: reflect → replan → retry; persistent goals; memory_system; learning_system"
+      - "v9.1: knowledge_compression, exploration_strategy, causal_layer, execution_memory, quality_gates, router learning"
+      - "v9.2: phased UI (Web → Flutter Desktop → Mobile companion); debug_control_panel; event_contract"
+  interface:
+    purpose: "Тонкие клиенты к Python core; наблюдаемость и контроль, не дублирование интеллекта."
+    principle: "Desktop = создание и отладка; Mobile = контроль; Backend = интеллект."
+    includes:
+      - "Фаза A: лёгкий Web Debug / Control Panel (MVP) — тот же REST + WebSocket"
+      - "Фаза B: Flutter Desktop — полноценный dev/debug UI (Cursor-like панели, не продуктовый polish)"
+      - "Фаза C: Flutter Mobile companion — approve, метрики, taxi meter, уведомления (не полный IDE)"
+      - "Фаза D (опционально): Mobile IDE — только после зрелости ядра"
+      - "См. interface_layer.client_strategy и debug_control_panel"
+
+---------------------------------------------------------------------
+HIGH-LEVEL ARCHITECTURE
+---------------------------------------------------------------------
+
+architecture:
+  core:
+    runtime: "Python 3.11+"
+    # WINDOWS OPTIMIZATION: Используем нативный Proactor (IOCP)
+    async_loop: "asyncio.WindowsProactorEventLoopPolicy"
+    concurrency_model:
+      - async_io: "asyncio / aiofiles / httpx (Token Bucket limits)"
+      - multi_thread: "ThreadPoolExecutor (Simple IO)"
+      - multi_process: "multiprocessing (spawn method - default on Win)"
+      - agent_orchestration: "async multi-agent DAG scheduler"
+  storage:
+    - local_cache: ".andromeda\\cache\\"
+    - project_snapshots: ".andromeda\\snapshots\\"
+    - patch_store: ".andromeda\\patches\\"
+    - memory_store: ".andromeda\\memory\\"
+    - episodic_store: ".andromeda\\memory\\episodic\\"
+    - semantic_memory_index: ".andromeda\\memory\\semantic\\"
+    - working_session_state: ".andromeda\\memory\\working\\"
+    - experience_store: ".andromeda\\memory\\experience\\"
+    - logs: ".andromeda\\logs\\"
+    - golden_image: ".andromeda\\golden\\" # Read-only backup
+  security:
+    # WINDOWS SAFETY: Запуск процессов с ограниченными правами или стандартный subprocess
+    sandbox_runner: "subprocess (restricted mode via config) / VirtualEnv isolation"
+    dry_run_mode: true
+    signature_verification: "required for auto-applied patches"
+
+  ui:
+    strategic_stack: "Flutter — целевой кроссплатформенный клиент; старт UI — не обязательно с Flutter SDK."
+    planned_framework: "Flutter (Desktop приоритет; Mobile позже)"
+    mvp_web_alternative:
+      description: "Быстрый MVP панели отладки: статический/лёгкий фронт + WebSocket (мало RAM/SSD vs полный Flutter toolchain)."
+      when: "слабое железо, нужна видимость DAG/логов/диффов до зрелости Flutter-сборки"
+    primary_targets:
+      - "Windows Desktop (основной dev + debug)"
+      - "Android / iOS — только companion после фазы Desktop"
+    non_goals_early:
+      - "продуктовый UI уровня Cursor/Revolut на старте"
+      - "полноценный мобильный IDE с нуля"
+      - "анимации и тяжёлый визуальный дизайн вместо функционала панели"
+    ui_hooks: "/ui/hooks.yaml"
+    quick_controls: "Powershell/CMD CLI with live 'Taxi Meter' cost tracking"
+
+---------------------------------------------------------------------
+INTERFACE LAYER — API & real-time (Desktop / Mobile clients)
+---------------------------------------------------------------------
+
+interface_layer:
+  client_strategy:
+    brain_is_python: true
+    description: "Все решения, DAG, experience, decision — в оркестраторе. Клиенты только отображают и шлют команды."
+    time_split_recommendation: "~80% ядро интеллекта, ~20% UI-панель (инженерный инструмент, не продукт)."
+    phased_rollout:
+      phase_a_web_debug:
+        priority: 1
+        stack_suggestion: "минимальный Web UI (HTML/CSS/JS или лёгкий фреймворк) + те же REST/WS"
+        goal: "быстрый MVP наблюдаемости на слабом ПК без тяжёлого Flutter SDK"
+      phase_b_flutter_desktop:
+        priority: 2
+        goal: "Debug / Control Desktop — pipeline viewer, logs, diff, taxi meter, decision inspector"
+      phase_c_flutter_mobile_companion:
+        priority: 3
+        goal: "мониторинг, approve/reject, cost, уведомления — не кодинг как на десктопе"
+      phase_d_mobile_ide:
+        priority: 4
+        goal: "лёгкое редактирование + remote execution — только после зрелости ядра"
+    resource_constraints:
+      note: "При малых RAM/SSD отдавать приоритет фазе A; Flutter SDK и сборки тяжелее."
+      mitigation: "CI-сборки артефактов; локально только web или готовый desktop binary."
+  debug_control_panel:
+    description: "Минимальный обязательный функционал GUI (web или Flutter) для отладки multi-agent системы."
+    must_have:
+      - name: pipeline_viewer
+        detail: "DAG / очередь шагов: pending, running, done, failed, длительность"
+      - name: live_logs_events
+        detail: "стрим агентов, ошибки, решения супервизора"
+      - name: patch_viewer
+        detail: "unified diff; Apply / Reject / Edit (см. human_workflow)"
+      - name: taxi_meter
+        detail: "визуальный накопительный cost (USD / tokens)"
+      - name: decision_inspector
+        detail: "выбранный fix, confidence, альтернативы из decision_engine (киллер для отладки)"
+    explicit_non_goals:
+      - "pixel-perfect продуктовый дизайн"
+      - "mobile-first полноценный IDE на ранней стадии"
+  event_contract:
+    description: "Схема сообщений WebSocket выносится в отдельный артефакт (например docs/ui_events.schema.json)."
+    required_topics:
+      - "task.state_changed"
+      - "agent.log_line | agent.event"
+      - "cost.tick"
+      - "patch.proposed | patch.applied"
+      - "decision.selected | decision.alternatives"
+  backend:
+    runtime: "Python (тот же процесс что и оркестратор или отдельный worker)"
+    bind:
+      host_default: "127.0.0.1"
+      port_default: 8756
+    protocols:
+      rest:
+        purpose: "Команды сессии, статус пайплайна, загрузка/выдача артефактов, конфиг."
+        style: "OpenAPI-совместимые маршруты (спека отдельным openapi.yaml)"
+      websocket:
+        purpose: "Стрим логов, прогресс задач, taxi-meter, события агентов."
+        channels:
+          - "session:{id}/logs"
+          - "session:{id}/tasks"
+          - "session:{id}/cost"
+    security:
+      local_first: "Только loopback по умолчанию; опционально mTLS/токен для LAN."
+      note: "Не экспонировать наружу без явного флага и аутентификации."
+  flutter_clients:
+    desktop: "Фаза B: dev/debug — проект, граф задач, диффы, инспектор решений (не 'продукт с нуля')."
+    mobile: "Фаза C: companion — мониторинг, утверждения, taxi meter; тот же протокол."
+    live_coding: "См. human_workflow — превью диффа, approve/reject; позже расширение inline."
+  hybrid_option:
+    description: "Допустимо: Web MVP + позже Flutter, общий backend и одна схема событий."
+
+---------------------------------------------------------------------
+AGENTS (roles & models)
+---------------------------------------------------------------------
+
+agents:
+  SYSTEM_ARCHITECT:
+    model_preference: ["google/gemini-pro", "local:gemini-light"]
+    responsibilities:
+      - plan_tasks
+      - generate task_graph (DAG)
+      - validate agent outputs
+    concurrency: "orchestrator (async controller)"
+
+  MERCURY:
+    role: "base_coder"
+    model_preference: ["fast-llm-small", "cloud:high-throughput"]
+    responsibilities:
+      - produce minimal runnable code
+      - create per-file changes
+    mode: "IO-bound friendly (async)"
+    context_strategy: "Surgical Context (interfaces only)"
+
+  GEMINI_ENHANCER:
+    role: "senior_refactor"
+    model_preference: ["google/gemini-enhance", "cloud:high-quality"]
+    responsibilities:
+      - enhance Mercury outputs
+      - create unified patches
+    concurrency: "CPU + IO (multi-process)"
+    context_strategy: "Full target context + Surgical deps"
+
+  UI_CREATOR:
+    role: "frontend/ui"
+    model_preference: ["janus-ui"]
+    responsibilities:
+      - generate Windows/Flutter UI artifacts
+    concurrency: "async IO"
+
+  TESTER:
+    role: "test_agent"
+    responsibilities:
+      - generate and run tests (pytest/unittest)
+      - check pip/npm dependencies
+    concurrency: "multi-process"
+
+  SUPERVISOR:
+    role: "safety_gate"
+    responsibilities:
+      - final approval
+      - cost control monitoring
+      - rollback
+      - observe agent outputs and arbitrate on conflicts (meta-agent, не пишет код)
+    concurrency: "sync checks"
+    note: "Планирование и DAG — зона SYSTEM_ARCHITECT; приоритеты эскалации и откат — SUPERVISOR."
+
+  EXPERIENCE_ENGINE:
+    role: "experience_rag_plus"
+    model_preference: ["embedding-local", "cloud:small-rerank"]
+    responsibilities:
+      - retrieve_structured_experience
+      - match_by_error_signature_stacktrace_task_type
+      - inject_best_fix_candidates_and_anti_patterns
+      - persist_outcomes_after_reflection
+    concurrency: "async IO"
+    note: "Не «просто векторный поиск текста» — структурированные записи + scoring + decay."
+
+  DECISION_ENGINE:
+    role: "strategy_selection"
+    responsibilities:
+      - rank_fix_candidates
+      - apply_anti_pattern_filter
+      - select_execution_policy_by_confidence
+    concurrency: "sync"
+    note: "См. decision_engine — кандидаты из опыта + LLM + hybrid."
+
+  REFLECTION_ENGINE:
+    role: "failure_recovery_loop"
+    responsibilities:
+      - orchestrate_reflection_steps
+      - invoke_experience_engine_and_decision_engine
+      - cap_iterations_and_terminate
+    concurrency: "async"
+    note: "См. reflection_engine; связан с autonomy_loop.reflection_loop."
+
+---------------------------------------------------------------------
+TOOLS LAYER (Agents use these tools)
+---------------------------------------------------------------------
+
+tools:
+  fs:
+    read: true
+    write: true
+    patch: true
+    fuzzy_patch: true      # Levenshtein fallback if git apply fails
+    snapshot: true
+    atomic_write: true     # Windows-safe atomic writes (os.replace)
+  git:
+    commit: true
+    branch: true
+    diff: true
+    apply: true
+    revert: true
+  exec:
+    run_command: true      # Powershell/CMD wrapper
+    run_in_sandbox: true   # VirtualEnv execution
+    install_deps: true     # pip install / npm install
+  network:
+    http_client: true      # Rate-limited wrapper
+  analysis:
+    tree_sitter: true      # Python bindings work natively on Windows
+    dependency_graph: true
+    linter: true
+  telemetry:
+    metrics_store: true
+    cost_tracker: true     # Tokens & USD counter
+    tracing: true
+  browser:
+    automation: "Playwright (предпочтительно) / Selenium fallback"
+    use_cases:
+      - "e2e после деплоя локального сервера"
+      - "проверка UI-флоу в autonomy loop"
+    note: "Тяжёлый инструмент; запуск в sandbox / отдельном воркере."
+  api_testing:
+    style: "HTTP-клиент + коллекции запросов (аналог Postman/Newman)"
+    contract_checks: "сверка с api_contract из repo_context"
+  ui_testing:
+    flutter: "integration_test / flutter_driver где применимо"
+    other_stacks: "jest/cypress/playwright по типу проекта"
+
+---------------------------------------------------------------------
+ASYNC & MULTIPROCESS ENGINE CONFIG
+---------------------------------------------------------------------
+
+concurrency:
+  async_engine:
+    framework: "asyncio (Proactor)"
+    http_client: "httpx"
+    rate_limiter:
+      type: "TokenBucket"
+      strategy: "global_tpm_limit"
+    max_concurrent_tasks: 100
+    per_agent_task_limits:
+      mercury: 32
+      gemini_enhancer: 8
+      ui_creator: 16
+      tester: 8
+    task_queue:
+      type: "priority_queue"
+
+  process_pool:
+    purpose: "CPU-bound jobs (AST, heavy logic)"
+    max_workers: "auto (cpu_count)"
+    interprocess_comm:
+      # Windows поддерживает SharedMemory начиная с Python 3.8+
+      - "multiprocessing.shared_memory"
+      - "multiprocessing.Queue"
+
+---------------------------------------------------------------------
+SANDBOX & PARALLEL WORKERS (optional Docker-per-task)
+---------------------------------------------------------------------
+
+sandbox_parallel:
+  description: "Изоляция параллельных агентов: по умолчанию один процесс + локи файлов; опционально контейнер на задачу."
+  modes:
+    in_process:
+      default: true
+      locking: "asyncio.Lock + при необходимости file-based .lock (см. patch_system)"
+    docker_per_task:
+      default: false
+      when: "Несколько тяжёлых кодеров / разные окружения / имитация 'отдельных машин'."
+      orchestration: "DockerManager или аналог; синхронизация артефактов через volume / Redis (будущее)."
+      note: "На Windows — Docker Desktop; fallback на in_process + LocalUnsafeSandbox."
+
+---------------------------------------------------------------------
+REPO CONTEXT ENGINE
+---------------------------------------------------------------------
+
+repo_context:
+  index:
+    ast_parser: "tree-sitter"
+    embeddings_index: true
+    update_strategy: "incremental" # Only scan files with changed mtime/hash
+  search:
+    semantic: true
+    surgical: true
+  models:
+    context_window: 4096
+    dynamic_expansion: true
+
+  # Типизированный RAG: в промпт попадают не «любые куски», а фрагменты с меткой типа.
+  rag_injection:
+    chunk_types:
+      code_implementation:
+        description: "Функции/классы/модули; приоритет сигнатуры и соседних импортов."
+        source_globs: ["**/*.py", "**/*.dart", "**/*.ts", "**/*.rs", "**/*.go"]
+        max_tokens_soft: 1200
+      code_example:
+        description: "Короткие эталонные фрагменты из docs/ или tests/ как образец стиля."
+        source_globs: ["**/examples/**", "**/test_*.py", "**/*.md"]
+        max_tokens_soft: 800
+      config_file:
+        description: "pyproject, package.json, Dockerfile, env-шаблоны, ci yaml."
+        source_globs: ["**/pyproject.toml", "**/package.json", "**/.github/**", "**/Dockerfile*"]
+        max_tokens_soft: 600
+      api_contract:
+        description: "OpenAPI/Proto/GraphQL схемы и явные endpoint-контракты."
+        source_globs: ["**/*openapi*.yaml", "**/*openapi*.json", "**/*.proto", "**/schema.graphql"]
+        max_tokens_soft: 900
+      plan_fragment:
+        description: "Фрагменты spec.yaml / task.yaml / execution_plan для выравнивания с планом."
+        source_globs: ["**/spec.yaml", "**/task*.yaml", "**/execution*.yaml"]
+        max_tokens_soft: 700
+      prose_doc:
+        description: "README, ADR, markdown-описания поведения."
+        source_globs: ["**/*.md", "**/docs/**"]
+        max_tokens_soft: 500
+      experience_fix:
+        description: "Структурированные успешные фиксы из Experience Store (problem → fix → outcome)."
+        source_store: "experience_store (не glob; выборка по retrieval experience_system)"
+        max_tokens_soft: 600
+      anti_pattern:
+        description: "Триггеры «если X — не делай Y» + лучшая альтернатива."
+        source_store: "experience_store"
+        max_tokens_soft: 400
+    retrieval_policy:
+      default_top_k_per_type: 3
+      min_similarity: 0.72
+      dedupe_by_file_path: true
+      # Переопределения по роли (имена как в agents:)
+      per_role_bias:
+        MERCURY:
+          code_implementation: 1.4
+          api_contract: 1.2
+          experience_fix: 1.25
+          anti_pattern: 1.15
+        GEMINI_ENHANCER:
+          code_implementation: 1.2
+          prose_doc: 1.1
+          experience_fix: 1.1
+          anti_pattern: 1.1
+        SYSTEM_ARCHITECT: { plan_fragment: 1.5, config_file: 1.2 }
+        TESTER: { code_example: 1.3, code_implementation: 1.2 }
+        UI_CREATOR: { code_implementation: 1.1, prose_doc: 1.2 }
+        EXPERIENCE_ENGINE: { experience_fix: 1.0, anti_pattern: 1.0 }
+    prompt_assembly:
+      section_order:
+        - "task_intent"
+        - "anti_pattern"
+        - "experience_fix"
+        - "plan_fragment" # если есть
+        - "api_contract"
+        - "config_file"
+        - "code_implementation"
+        - "code_example"
+        - "prose_doc"
+      label_format: "[{chunk_type}] {source_path}:{anchor}"
+
+---------------------------------------------------------------------
+AUTONOMY LOOP & REFLECTION (Devin-class)
+---------------------------------------------------------------------
+
+autonomy_loop:
+  description: "Цикл автономного разработчика: не только execution engine, а устойчивое достижение цели."
+  loop: "while not done: plan → act (code/run/search) → observe (logs/tests/browser) → reflect → adjust"
+  reflection_loop:
+    enabled: true
+    max_iterations: 5
+    steps:
+      - id: analyze_failure
+        description: "Разбор stderr, exit code, stacktrace, линт, контрактов API."
+      - id: consult_experience
+        description: "EXPERIENCE_ENGINE: похожие кейсы, anti-patterns."
+      - id: replan_partial
+        description: "Частичное обновление DAG / subtask без полного сброса goal."
+      - id: retry_pipeline
+        description: "Повтор с новым контекстом и лимитом итераций."
+    halt_conditions:
+      - "success_all_checks"
+      - "max_iterations_exceeded"
+      - "supervisor_abort"
+      - "budget_exceeded"
+
+---------------------------------------------------------------------
+PERSISTENT GOAL EXECUTION
+---------------------------------------------------------------------
+
+persistent_goal_execution:
+  description: "Долгоживущие цели (часы/дни), а не один shot CLI."
+  concepts:
+    - "goal: формулировка пользователя + критерии готовности"
+    - "checkpoint: сохранённое состояние (working + episodic summary)"
+    - "resume: продолжение с последнего checkpoint"
+  storage:
+    state_dir: ".andromeda\\goals\\"
+    artifact: "goal_state.yaml + execution_journal.jsonl"
+  behaviors:
+    - "декомпозиция на эпики и очередь (см. planning_hierarchy)"
+    - "фоновые сессии (через interface_layer / CLI --detach)"
+    - "явные критерии 'definition of done' на уровне goal"
+
+---------------------------------------------------------------------
+MEMORY SYSTEM (intelligence, не просто storage)
+---------------------------------------------------------------------
+
+memory_system:
+  episodic:
+    description: "История: какие задачи, ошибки, фиксы, сколько итераций."
+    store: "episodic_store + журнал в observability"
+    content:
+      - "task_id, timestamps, failure signatures, applied patches"
+      - "supervisor decisions"
+  semantic:
+    description: "Долговременные знания о проекте и архитектуре."
+    store: "semantic_memory_index (vector DB: FAISS / Chroma / Qdrant — реализация открыта)"
+    content:
+      - "architecture decisions (ADR)"
+      - "принятые паттерны и соглашения"
+      - "индекс кода (связь с repo_context)"
+  working:
+    description: "Текущая сессия: активный план, открытые файлы, очередь инструментов."
+    store: "working_session_state"
+    ttl: "по завершении сессии → сжатие в episodic summary"
+
+  execution_memory:
+    description: "Что уже пробовали в рамках текущей задачи — не путать с долговременным episodic."
+    scope: "per_task"
+    store:
+      - "attempted_strategies (ids / hashes действий)"
+      - "failed_actions (команда + ошибка)"
+      - "partial_results (артефакты промежуточных шагов)"
+    usage:
+      - "avoid_repeat_failures"
+      - "guide_reflection_engine"
+      - "кормить decision_engine (не предлагать уже провалившееся без смены контекста)"
+    persistence:
+      path: ".andromeda/memory/working/task_{task_id}_execution.jsonl"
+      merge_into_episodic: "по успеху или финальному abort — summary в episodic"
+
+---------------------------------------------------------------------
+LEARNING SYSTEM (behavior / effectiveness, не только self_upgrade кода)
+---------------------------------------------------------------------
+
+learning_system:
+  description: "Накопление эффективности поведения; отдельно от self_upgrade (изменение кода ядра)."
+  track:
+    - "success_rate_per_agent"
+    - "tool_usage_efficiency (latency, success, retries)"
+    - "patch_success_rate / fuzzy_apply_rate"
+    - "test_pass_rate_trend"
+    - "cost_per_successful_task"
+  optimize:
+    targets:
+      - "prompt_templates (A/B или ручное правило по метрикам)"
+      - "agent_selection_heuristics"
+      - "DAG branching strategies (когда включать browser, когда урезать контекст)"
+    safety:
+      - "все авто-изменения промптов — с golden snapshot и откатом"
+      - "human_approval для production prompt packs"
+
+---------------------------------------------------------------------
+EXPLORATION VS EXPLOITATION (избежание локального оптимума)
+---------------------------------------------------------------------
+
+exploration_strategy:
+  enabled: true
+  description: "Баланс: в основном лучшее известное решение, иногда пробовать новую стратегию."
+  epsilon: 0.1
+  behavior:
+    exploitation_share: 0.9
+    exploration_share: 0.1
+    exploration_triggers:
+      - "все кандидаты decision_engine ниже medium_confidence"
+      - "повторяющийся тот же failure_signature в execution_memory"
+      - "явный флаг пользователя --explore"
+  guardrails:
+    - "exploration не обходит quality_gates без supervisor_override"
+    - "логировать exploration-попытки в metrics.tracked"
+
+---------------------------------------------------------------------
+PLANNING HIERARCHY (multi-level)
+---------------------------------------------------------------------
+
+planning_hierarchy:
+  description: "Глубина мышления сверх одного плоского DAG."
+  levels:
+    - name: goal
+      owner: "user + SYSTEM_ARCHITECT"
+    - name: epic
+      owner: "SYSTEM_ARCHITECT"
+    - name: task
+      owner: "SYSTEM_ARCHITECT / планировщик"
+    - name: subtask
+      owner: "планировщик"
+    - name: action
+      owner: "инструменты агента (atomic)"
+  mapping_to_dag:
+    note: "DAG строится из task/subtask; epic группирует связанные DAG-ветки; goal охватывает несколько эпиков."
+
+---------------------------------------------------------------------
+EVALUATION & ARBITRATION
+---------------------------------------------------------------------
+
+evaluation:
+  description: "Больше чем TESTER=pytest: качество и коллективные решения."
+  metrics:
+    - "test_pass_rate"
+    - "lint_score"
+    - "complexity_score (cyclomatic / cognitive — инструменты)"
+    - "duplication_score"
+    - "contract_adherence (API схемы)"
+  arbitration:
+    type: "multi-agent voting + supervisor_tie_break"
+    participants:
+      - "GEMINI_ENHANCER (качество)"
+      - "TESTER (исполнение)"
+      - "SUPERVISOR (финал)"
+  regression:
+    - "сравнение метрик с последним golden checkpoint"
+    - "блок merge при регрессии выше порога"
+
+  quality_gates:
+    description: "Жёсткие пороги до применения / после post_apply; не только сбор метрик."
+    enabled: true
+    rules:
+      - metric: "test_pass_rate"
+        operator: ">="
+        threshold: 0.95
+      - metric: "lint_score"
+        operator: ">="
+        threshold: 0.9
+      - metric: "complexity_delta"
+        operator: "<="
+        threshold: 0.15
+        note: "относительно baseline ветки или последнего golden snapshot"
+    action_on_fail:
+      - "block_apply"
+      - "force_reflection"
+      - "опционально: notify human_workflow для approve"
+    bypass:
+      policy: "только explicit supervisor + audit log"
+
+---------------------------------------------------------------------
+HUMAN WORKFLOW (Cursor / Claude Code-class UX)
+---------------------------------------------------------------------
+
+human_workflow:
+  description: "Быстрые итерации человека и агента; снижение трения vs чистый CLI."
+  ui_surface: "Реализация через interface_layer.debug_control_panel (Web MVP или Flutter); не смешивать с логикой оркестратора."
+  patterns:
+    live_coding_loop:
+      flow: "user prompt → agent patch → UI diff preview → user approve | edit | reject"
+    inline_ai:
+      description: "Выделение фрагмента → improve / explain / test — через IDE LSP-хуки или REST."
+    chat_code_fusion:
+      description: "Чат сессии привязан к файлам и task id; контекст в working memory."
+  requirements:
+    - "обязательный diff preview перед apply (конфигурируемо)"
+    - "короткие команды approve для типовых правок"
+
+---------------------------------------------------------------------
+MODEL ROUTER (cost vs quality)
+---------------------------------------------------------------------
+
+model_router:
+  description: "Динамический выбор модели, не только model_preference в YAML агента."
+  strategy:
+    - "cheap_for_simple: мелкие subtask / форматирование"
+    - "strong_for_complex: архитектура, конфликтные мерджи, большие рефакторы"
+    - "fallback_on_error: лимиты, timeout, пустой ответ → запасная модель"
+  signals:
+    - "estimated_tokens"
+    - "task depth (planning_hierarchy)"
+    - "failure_count_in_reflection_loop"
+    - "remaining_budget"
+  dynamic_learning:
+    enabled: true
+    description: "Накопление статистики по моделям и автоматический выбор лучшей для типа задачи."
+    track:
+      - "success_per_model_per_task_type"
+      - "cost_per_success"
+      - "latency_p50_p95"
+      - "fallback_rate"
+    optimize:
+      choose_best_model_per_task_type: true
+      recompute_interval: "каждые N сессий или по cron"
+      cold_start: "heuristic из model_preference до накопления данных"
+    safety:
+      - "не переключать production-маршрут без минимального объёма выборки"
+      - "human_approval для смены default routing policy"
+  implementation:
+    note: "Политика в temir_config / отдельный router module; метрики в learning_system и metrics.tracked."
+
+---------------------------------------------------------------------
+EXPERIENCE SYSTEM (RAG++ — структура, не только похожий текст)
+---------------------------------------------------------------------
+
+experience_system:
+  description: "Ошибка → похожие кейсы → что сработало; anti-patterns; scoring с decay."
+  store:
+    failures: true
+    fixes: true
+    patterns: true
+    anti_patterns: true
+  retrieval:
+    by:
+      - "error_signature"
+      - "stacktrace_hash"
+      - "diff_context"
+      - "task_type"
+      - "language_framework"
+    output:
+      - "best_fix_candidates"
+      - "avoid_patterns"
+      - "confidence_scores"
+  experience_entry_schema:
+    id: "uuid"
+    problem:
+      type: "runtime_error | lint | test_fail | contract | logic"
+      signature: "короткая строка или класс исключения"
+      stacktrace_hash: "хэш нормализованного стека"
+    context:
+      language: "string"
+      framework: "string"
+      dependencies: ["list"]
+    attempt:
+      patch_ref: "nullable"
+      action: "run | tool_name"
+    result:
+      success: "bool"
+      error: "nullable string"
+    fix:
+      action: "string (например pip install, смена импорта)"
+      patch_ref: "nullable"
+    outcome:
+      success: "bool"
+      tests_passed: "bool"
+    score:
+      confidence: "0..1"
+      reuse_count: "int"
+      last_used: "timestamp"
+  anti_pattern_schema:
+    trigger: "условие (например asyncio + blocking IO)"
+    bad_action: "что не делать"
+    rationale: "почему"
+    better: "рекомендуемая альтернатива"
+  scoring:
+    success_weight: 1.0
+    failure_penalty: -0.7
+    reuse_bonus: 0.2
+    decay: true
+    decay_half_life_days: 30
+  pipeline_integration:
+    on_success: "записать outcome в experience_store (опционально, с PII-фильтром)"
+    on_failure: "reflection_loop вызывает consult_experience до replan"
+  canonical_implementation: "Операционная конфигурация — в секции experience_engine (ниже): storage hybrid, ingestion, retrieval, pruning."
+
+---------------------------------------------------------------------
+SMART PATCH SYSTEM (Fuzzy & Locked)
+---------------------------------------------------------------------
+
+patch_system:
+  strategy:
+    - step1: "create_snapshot"
+    - step2: "lock_target_files"
+    - step3: "generate_per_file_diffs"
+    - step4: "validate_diffs"
+    - step5: "compose_unified_patch"
+    - step6: "apply_patch_atomic"      # Git Apply -> Fallback to Fuzzy
+    - step7: "post_apply_checks"
+    - step8: "finalize_or_rollback"
+  
+  concurrency_control:
+    # В Windows нет flock, используем asyncio.Lock() внутри процесса
+    # или .lock файлы для межпроцессной синхронизации
+    file_locking: "File-based .lock or Memory Locks"
+  
+  atomicity:
+    method: "write-temp-then-replace" # Windows atomic replace
+  
+  fuzzy_logic:
+    enabled: true
+    algorithm: "Levenshtein / diff-match-patch"
+    threshold: 0.85
+  
+  backups:
+    keep_snapshots: 10
+
+---------------------------------------------------------------------
+LOGGING, TELEMETRY & COST
+---------------------------------------------------------------------
+
+observability:
+  logs:
+    format: "structured-json"
+    levels: ["DEBUG","INFO","WARN","ERROR","CRITICAL"]
+    aggregation: ".andromeda\\logs\\aggregated.log"
+  
+  cost_control:
+    enabled: true
+    display: "live-cli-taxi-meter"
+    budget_cap: "soft-limit per session"
+
+---------------------------------------------------------------------
+SELF-UPGRADE / SELF-EVOLVING MODULE
+---------------------------------------------------------------------
+
+self_upgrade:
+  enabled: true
+  distinction: "Изменение кода/артефактов ядра Temir; не путать с learning_system (метрики, промпты, стратегии)."
+  safety:
+    golden_snapshots:
+      path: ".andromeda\\golden\\"
+      policy: "Read-only backup. Restore via external bat/ps1 script."
+    human_in_the_loop:
+      core_changes: "ALWAYS require confirmation"
+  
+  components:
+    monitor: true
+    candidate_generator: true
+    evaluator: true
+    applier: true
+    external_rollback:
+      - "scripts\\emergency_restore.bat" # Windows Batch script
+
+---------------------------------------------------------------------
+PIPELINE (DAG)
+---------------------------------------------------------------------
+
+pipeline:
+  concurrency: "async-multiagent"
+  scheduler:
+    engine: "async-priority-scheduler"
+  steps:
+    - id: intent_detection
+      agent: SYSTEM_ARCHITECT
+      type: async
+      outputs: ["/analysis/task.yaml"]
+
+    - id: repo_scan_incremental
+      agent: PROJECT_ANALYZER
+      type: async
+      description: "Incremental Tree-sitter scan"
+      run_policy: "if_changed"
+
+    - id: experience_lookup
+      agent: EXPERIENCE_ENGINE
+      type: async
+      description: "Structured experience retrieval — best_fix_candidates, anti_patterns (см. experience_system)"
+      inputs: ["intent_detection", "repo_scan_incremental"]
+      outputs: ["/analysis/experience_bundle.json"]
+      run_policy: "before_codegen; intensify_on_reflection_retry"
+
+    - id: generate_units
+      agent: MERCURY
+      type: async
+      inputs: ["experience_lookup"]
+      concurrency: per_agent_task_limits.mercury
+      outputs_pattern: "/src/base/{file}"
+      locks: ["write:{file}"]
+
+    - id: enhance_units
+      agent: GEMINI_ENHANCER
+      type: async
+      inputs: ["generate_units"]
+      outputs: ["/patches/partial/{task_id}.patch"]
+
+    - id: compose_patch
+      agent: SYSTEM_ARCHITECT
+      type: sync
+      inputs: ["enhance_units"]
+      outputs: ["/patches/merged.patch"]
+
+    - id: dry_run_and_sandbox
+      agent: SUPERVISOR
+      type: async
+      description: "Dry-run + Fuzzy Check"
+      inputs: ["compose_patch"]
+
+    - id: dependency_check
+      agent: TOOLS.EXEC
+      type: sync
+      description: "Detect and install libs (pip/npm) via subprocess"
+      run_policy: "on_detection"
+
+    - id: scoring_and_decision
+      agent: SYSTEM_ARCHITECT
+      type: sync
+
+    - id: apply_patch_atomic
+      agent: tools.fs
+      type: sync
+      description: "Apply & Commit"
+
+    - id: post_apply_checks
+      agent: TESTER
+      type: async
+
+    - id: self_upgrade_cycle
+      agent: self_upgrade
+      type: scheduled
+
+---------------------------------------------------------------------
+CLI COMMANDS
+---------------------------------------------------------------------
+
+cli:
+  binary: "temir"
+  commands:
+    - name: new
+      usage: "temir new app ..."
+    - name: code
+      usage: "temir code --task <task.yaml> --budget 2.00"
+    - name: enhance
+      usage: "temir enhance --patch <partial.patch>"
+    - name: patch
+      usage: "temir patch --apply --fuzzy"
+    - name: evolve
+      usage: "temir evolve --core --confirm"
+    - name: cost
+      usage: "temir cost --session"
+    - name: goal
+      usage: "temir goal run --spec goal.yaml  # долгоживущая цель, checkpoints"
+    - name: resume
+      usage: "temir goal resume --id <goal_id>"
+
+---------------------------------------------------------------------
+EXPERIENCE ENGINE (operational — hybrid storage & lifecycle)
+---------------------------------------------------------------------
+
+experience_engine:
+  enabled: true
+
+  storage:
+    type: "hybrid"
+    local_db: ".andromeda/memory/experience.db"
+    vector_index: ".andromeda/memory/experience_vectors"
+    serialization: "jsonl"
+
+  schema:
+    experience_entry:
+      id: "uuid"
+
+      problem:
+        type: ["runtime_error", "logic_error", "build_error", "test_failure"]
+        signature: "string"
+        stacktrace_hash: "string"
+
+      context:
+        language: "string"
+        framework: "string"
+        dependencies: ["string"]
+        task_type: "string"
+        file_scope: ["string"]
+
+      attempt:
+        action_type: ["patch", "command", "config_change"]
+        payload: "string"
+
+      result:
+        success: "bool"
+        error_message: "string | null"
+
+      fix:
+        action_type: ["patch", "command", "config_change"]
+        payload: "string"
+
+      outcome:
+        success: "bool"
+        tests_passed: "bool"
+        performance_delta: "float | null"
+
+      scoring:
+        confidence: "float"
+        success_count: "int"
+        failure_count: "int"
+        reuse_count: "int"
+        last_used_at: "timestamp"
+
+  ingestion:
+    on_events:
+      - "post_apply_checks"
+      - "pipeline_failure"
+      - "test_failure"
+
+    process:
+      - extract_error_signature
+      - hash_stacktrace
+      - capture_context
+      - store_attempt
+      - store_fix_if_success
+
+  retrieval:
+    enabled: true
+
+    query_by:
+      - error_signature
+      - stacktrace_hash
+      - semantic_embedding
+      - task_type
+
+    filters:
+      min_confidence: 0.6
+      min_success_rate: 0.5
+
+    ranking:
+      weights:
+        similarity: 0.4
+        success_rate: 0.3
+        reuse_count: 0.2
+        recency: 0.1
+
+    top_k: 5
+
+  anti_patterns:
+    enabled: true
+
+    schema:
+      trigger: "string"
+      forbidden_action: "string"
+      reason: "string"
+      alternative: "string"
+      confidence: "float"
+
+    enforcement:
+      block_threshold: 0.8
+      warn_threshold: 0.6
+
+  scoring:
+    update_rules:
+      on_success:
+        confidence_delta: 0.1
+        success_count_increment: 1
+        reuse_increment: 1
+
+      on_failure:
+        confidence_delta: -0.15
+        failure_count_increment: 1
+
+    decay:
+      enabled: true
+      half_life_days: 14
+
+  pruning:
+    enabled: true
+    rules:
+      - "low_confidence < 0.3 AND reuse_count == 0"
+      - "outdated > 60 days"
+
+  note_compression: "Агрегация похожих кейсов — см. knowledge_compression (канонические решения)."
+
+---------------------------------------------------------------------
+KNOWLEDGE COMPRESSION (опыт → обобщённое знание)
+---------------------------------------------------------------------
+
+knowledge_compression:
+  enabled: true
+  description: "Снижение шума при росте episodic/semantic: кластеры похожих experience → канонические решения."
+  triggers:
+    - "scheduled (например еженедельно)"
+    - "store_size_threshold"
+    - "manual: temir memory compress"
+  process:
+    - cluster_similar_experiences
+    - extract_common_pattern
+    - merge_conflicting_fixes_via_supervisor_or_vote
+    - create_canonical_solution
+  output:
+    best_known_solution:
+      problem_signature: "string (нормализованный ключ)"
+      solution_summary: "string"
+      solution_payload_ref: "nullable pointer на patch/command"
+      aggregated_confidence: "float"
+      supporting_entry_ids: ["uuid"]
+      replaced_by_merge: ["uuid"]
+  storage:
+    path: ".andromeda/memory/canonical/"
+    format: "yaml + optional jsonl audit"
+  integration:
+    retrieval: "приоритет canonical над сырыми дубликатами при том же signature"
+    experience_engine: "после compression обновить vector_index / sqlite links"
+
+---------------------------------------------------------------------
+CAUSAL LAYER (почему сработало — переносимость контекста)
+---------------------------------------------------------------------
+
+causal_layer:
+  enabled: true
+  description: "Хранение причинно-смысловой цепочки, а не только факта успеха; снижает ложные аналогии."
+  store:
+    - root_cause
+    - reasoning_chain
+    - constraints
+  store_note: "constraints: окружение, версии, предпосылки, при которых fix валиден"
+  schema_fields:
+    root_cause: "string | structured"
+    reasoning_chain: "list of steps (human or LLM summarised)"
+    constraints:
+      language_version: "optional"
+      dependency_pins: "optional"
+      os: "optional"
+  usage:
+    - filter_wrong_context_on_retrieval
+    - improve_generalization_when_constraints_match
+  ingestion:
+    - "reflection_engine: identify_root_cause"
+    - "опционально: отдельный CAUSAL_EXTRACTOR LLM pass (дорого — только deep_thinking mode)"
+  ties:
+    experience_entry: "расширение experience_engine.schema.experience_entry опциональным блоком causal_ref"
+
+---------------------------------------------------------------------
+DECISION ENGINE (candidates, ranking, execution policy)
+---------------------------------------------------------------------
+
+decision_engine:
+  enabled: true
+
+  inputs:
+    - current_task
+    - error_context
+    - retrieved_experiences
+    - anti_patterns
+
+  strategy_generation:
+    candidates: 3
+
+    sources:
+      - experience_based
+      - llm_generated
+      - hybrid
+
+  candidate_schema:
+    action:
+      type: ["patch", "command", "config_change"]
+      payload: "string"
+
+    reasoning: "string"
+
+    expected_outcome:
+      success_probability: "float"
+      risk_level: ["low", "medium", "high"]
+
+  ranking:
+    weights:
+      confidence: 0.4
+      context_match: 0.3
+      past_success_rate: 0.2
+      risk_penalty: -0.1
+
+  anti_pattern_filter:
+    enabled: true
+
+    logic:
+      - "if trigger_match AND confidence > block_threshold → reject_candidate"
+      - "if trigger_match AND confidence > warn_threshold → lower_score"
+
+  selection:
+    mode: "best_first"
+
+    thresholds:
+      high_confidence: 0.85
+      medium_confidence: 0.65
+
+  execution_policy:
+    high_confidence:
+      strategy: "direct_apply"
+
+    medium_confidence:
+      strategy: "apply_with_fallback"
+      fallback_limit: 2
+
+    low_confidence:
+      strategy: "replan_required"
+
+  fallback:
+    enabled: true
+    max_attempts: 3
+
+    strategy:
+      - next_best_candidate
+      - llm_regeneration
+      - escalate_to_reflection
+
+---------------------------------------------------------------------
+REFLECTION ENGINE (explicit loop contract)
+---------------------------------------------------------------------
+
+reflection_engine:
+  enabled: true
+
+  triggers:
+    - execution_failure
+    - test_failure
+    - low_confidence_decision
+
+  max_iterations: 5
+
+  steps:
+    - analyze_failure
+    - identify_root_cause
+    - query_experience_engine
+    - generate_new_strategy
+    - re_execute
+
+  termination_conditions:
+    - success
+    - iteration_limit
+    - confidence_below_threshold
+
+---------------------------------------------------------------------
+RAG EXTENSION (prompt order — align с repo_context.rag_injection)
+---------------------------------------------------------------------
+
+rag_extension:
+  note: "Дублирует типы experience_fix/anti_pattern; injection_policy.order — целевой порядок для адаптеров промпта."
+  inject_types:
+
+    experience_fix:
+      description: "Исторически успешные решения"
+      max_tokens_soft: 600
+
+    anti_pattern:
+      description: "Известные плохие практики"
+      max_tokens_soft: 400
+
+  injection_policy:
+    order:
+      - "task_intent"
+      - "experience_fix"
+      - "anti_pattern"
+      - "code_implementation"
+
+---------------------------------------------------------------------
+PIPELINE EXTENSION (доп. шаги к pipeline.steps)
+---------------------------------------------------------------------
+
+pipeline_extension:
+
+  steps:
+
+    - id: experience_lookup
+      agent: EXPERIENCE_ENGINE
+      type: async
+      before: generate_units
+
+    - id: decision_selection
+      agent: DECISION_ENGINE
+      type: sync
+      before: enhance_units
+
+    - id: reflection_loop
+      agent: REFLECTION_ENGINE
+      type: async
+      after: post_apply_checks
+      condition: "on_failure"
+
+---------------------------------------------------------------------
+EXECUTION MODES (fast / balanced / deep)
+---------------------------------------------------------------------
+
+execution_modes:
+
+  fast_path:
+    condition: "experience.confidence > 0.85 AND high_similarity"
+    behavior:
+      - skip_llm_generation
+      - direct_apply_best_fix
+
+  balanced:
+    condition: "0.65 < confidence <= 0.85"
+    behavior:
+      - generate_candidates
+      - select_best
+      - apply_with_fallback
+
+  deep_thinking:
+    condition: "confidence <= 0.65"
+    behavior:
+      - full_llm_reasoning
+      - multi_strategy
+      - reflection_enabled
+
+---------------------------------------------------------------------
+METRICS (experience & recovery)
+---------------------------------------------------------------------
+
+metrics:
+  tracked:
+    - avg_attempts_per_task
+    - success_rate
+    - fallback_usage
+    - reflection_iterations
+    - time_to_resolution
+    - exploration_vs_exploitation_ratio
+    - knowledge_compression_runs
+    - canonical_solutions_created
+    - quality_gate_failures
+    - model_router_success_per_model
+    - cost_per_success_per_model
+
+  goals:
+    reduce_attempts: true
+    increase_first_try_success: true
+    minimize_cost: true
+
+---------------------------------------------------------------------
+IMPLEMENTATION NOTES (Windows Specific)
+---------------------------------------------------------------------
+
+implementation_notes:
+  performance:
+    - "MUST: Use 'asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())' in main.py."
+    - "DO NOT install uvloop."
+    - "SharedMemory works on Windows, ensure distinct names are used."
+  
+  paths:
+    - "Use 'pathlib.Path' everywhere to handle backslashes (\\) automatically."
+    - "Be aware of MAX_PATH (260 chars) limits on older Windows configurations."
+  
+  robustness:
+    - "Fuzzy Patcher is critical as CRLF/LF line endings often cause git apply issues on Windows."
+    - "Use 'utf-8' explicitly when opening files to avoid Windows-1251/CP1252 encoding issues."
+
+---------------------------------------------------------------------
+END OF SPEC
+---------------------------------------------------------------------

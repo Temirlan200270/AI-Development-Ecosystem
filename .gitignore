@@ -1,0 +1,27 @@
+# Secrets & local env
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Tooling / local data
+.andromeda/
+
+# Default sandbox (typer default: ./output) — generated project, venv, snapshots, nested repos
+output/
+
+# Local debug logs
+log.txt
+*.log
+
+# Runtime pipeline summaries (any path; often also under output/)
+execution_results.json
+summary.yaml

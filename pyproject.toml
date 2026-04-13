@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "temir"
+version = "0.2.0.dev0"
+description = "Автономная платформа для Spec-Driven разработки с самообучающимся AI-агентом"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "typer[all]>=0.9.0",
+    "pydantic>=2.0.0",
+    "docker>=6.0.0",
+    "google-generativeai>=0.3.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0",
+    "httpx>=0.25.0",
+    "tree-sitter>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "diff-match-patch>=20230430",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.22.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+]
+
+[project.scripts]
+temir = "temir.main:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["temir"]
+
+[tool.setuptools.package-data]
+temir = ["prompts/*.txt", "prompts/*.yaml"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "RUF"]
+ignore = ["S101", "S603", "S607", "G004", "RUF001", "RUF002"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["S101"]
+"src/main.py" = ["T201"]
+"_manual_gemini_test.py" = ["T201", "E501"]
+"test_python.py" = ["T201"]
+"temir/sandbox/local_sandbox.py" = ["S602"]
+
+[tool.pytest.ini_options]
+norecursedirs = "_manual_gemini_test.py"
+
+[tool.black]
+target-version = ["py38", "py39", "py310", "py311"]
+line-length = 88

@@ -1,0 +1,263 @@
+:root {
+  --bg: #0f1419;
+  --panel: #1a2332;
+  --border: #2d3a4d;
+  --text: #e6edf3;
+  --muted: #8b9cb3;
+  --accent: #58a6ff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --err: #f85149;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.top h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.status {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--border);
+}
+
+.badge.online {
+  color: var(--ok);
+}
+
+.badge.offline {
+  color: var(--muted);
+}
+
+.badge.cost {
+  color: var(--accent);
+ font-variant-numeric: tabular-nums;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 180px;
+}
+
+.panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.steplist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.steplist li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.steplist li.done {
+  color: var(--ok);
+}
+
+.steplist li.run {
+  color: var(--warn);
+}
+
+.steplist li.pend {
+  color: var(--muted);
+}
+
+.steplist li.err {
+  color: var(--err);
+}
+
+.subh {
+  margin: 0.65rem 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mono-compact {
+  max-height: 140px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.72rem;
+}
+
+.spine-panel {
+  grid-column: 1 / -1;
+}
+
+.spine-timeline {
+  max-height: 200px;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.mono {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  background: #0d1117;
+  padding: 0.75rem;
+  border-radius: 6px;
+  overflow: auto;
+  max-height: 220px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mono.log {
+  max-height: 320px;
+}
+
+.mono.diff {
+  max-height: 200px;
+}
+
+.actions,
+.log-toolbar {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.run-load {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.run-load input {
+  min-width: 12rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #0d1117;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+button {
+  background: var(--border);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.logs {
+  grid-column: 1 / -1;
+}
+
+.replay {
+  grid-column: 1 / -1;
+}
+
+.replay-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.replay-toolbar input[type="range"] {
+  flex: 1 1 180px;
+  min-width: 120px;
+  height: 0.35rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.replay-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex: 1 1 100%;
+}
+
+@media (min-width: 720px) {
+  .replay-meta {
+    flex: 1 1 auto;
+    margin-left: 0.5rem;
+  }
+}
+
+.mono.replay-focus {
+  max-height: 280px;
+  margin: 0;
+}

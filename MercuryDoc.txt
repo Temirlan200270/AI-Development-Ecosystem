@@ -1,0 +1,17 @@
+import requests
+
+response = requests.post(
+    'https://api.inceptionlabs.ai/v1/chat/completions',
+    headers={
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer INCEPTION_API_KEY'
+    },
+    json={
+        'model': 'mercury-coder',
+        'messages': [
+            {'role': 'user', 'content': 'What is a diffusion model?'}
+        ],
+        'max_tokens': 1000
+    }
+)
+data = response.json()

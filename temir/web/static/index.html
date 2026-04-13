@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Temir — Debug Control Panel</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <h1>Temir Debug Panel</h1>
+    <div class="status">
+      <span id="ws-status" class="badge offline">WS: …</span>
+      <span id="cost-meter" class="badge cost">$0.0000</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel pipeline">
+      <h2>Pipeline</h2>
+      <p class="hint">
+        DAG из событий <code>task.created</code> / <code>task.started</code> / <code>task.completed</code>.
+        <strong>Примечание:</strong> <code>temir run</code> и <code>temir ui</code> — разные процессы; поток с CLI в WebSocket не идёт.
+        Полный spine после прогона: введите <code>run_id</code> и «Загрузить JSONL».
+      </p>
+      <ul id="pipeline-list" class="steplist"></ul>
+    </section>
+
+    <section class="panel decision">
+      <h2>Strategy &amp; decisions &amp; LLM</h2>
+      <p class="hint">
+        <code>decision.strategy.selected</code> · <code>decision.*</code> · хвост <code>llm.requested</code> / <code>llm.completed</code>
+      </p>
+      <h3 class="subh">Strategy</h3>
+      <pre id="strategy-view" class="mono mono-compact">—</pre>
+      <h3 class="subh">Supervisor / decision</h3>
+      <pre id="decision-view" class="mono mono-compact">—</pre>
+      <h3 class="subh">LLM kernel (tail)</h3>
+      <pre id="llm-view" class="mono mono-compact">—</pre>
+    </section>
+
+    <section class="panel patch">
+      <h2>Patch preview</h2>
+      <p class="hint">Diff (события topic: patch.proposed)</p>
+      <pre id="patch-view" class="mono diff">—</pre>
+      <div class="actions">
+        <button type="button" id="btn-approve" disabled>Apply (stub)</button>
+        <button type="button" id="btn-reject" disabled>Reject (stub)</button>
+      </div>
+    </section>
+
+    <section class="panel spine-panel">
+      <h2>Event spine (компактный timeline)</h2>
+      <p class="hint">
+        Одна строка на событие: <code>#seq [topic]</code> (+ task_id если есть). Полный envelope — в «Live events» / «Replay focus».
+      </p>
+      <pre id="spine-timeline" class="mono spine-timeline">Ожидание: WebSocket (демо) или загрузите run из журнала.</pre>
+    </section>
+
+    <section class="panel logs">
+      <h2>Live events</h2>
+      <div class="log-toolbar">
+        <button type="button" id="btn-clear">Очистить</button>
+        <button type="button" id="btn-demo">Demo-событие</button>
+        <label class="run-load">
+          <span>Run:</span>
+          <input type="text" id="run-id-input" placeholder="UUID из .andromeda/runs" />
+          <button type="button" id="btn-load-run">Загрузить JSONL</button>
+        </label>
+      </div>
+      <pre id="log-view" class="mono log"></pre>
+    </section>
+
+    <section class="panel replay">
+      <h2>Replay v1</h2>
+      <p class="hint">
+        После «Загрузить JSONL» — ползунок и шаги накапливают состояние до выбранного события (cost / decision / patch).
+        Ниже — полный envelope: ответ на «что произошло на этом шаге».
+      </p>
+      <div class="replay-toolbar">
+        <button type="button" id="btn-replay-first" disabled title="First">&lt;&lt;</button>
+        <button type="button" id="btn-replay-prev" disabled title="Prev">&lt;</button>
+        <input type="range" id="replay-slider" min="0" max="0" value="0" disabled aria-label="Journal position" />
+        <button type="button" id="btn-replay-next" disabled title="Next">&gt;</button>
+        <button type="button" id="btn-replay-last" disabled title="Last">&gt;&gt;</button>
+        <span id="replay-meta" class="replay-meta"></span>
+      </div>
+      <pre id="replay-focus" class="mono replay-focus">Load a run to inspect one event (full envelope).</pre>
+    </section>
+
+    <section class="panel replay-v2">
+      <h2>Replay v2 — state machine</h2>
+      <p class="hint">
+        На шаге слайдера запрашивается
+        <code>GET /api/run/…/replay/v2/state?raw_end_inclusive=</code>
+        (префикс JSONL, затем детерминированный fold). Ветка журнала:
+        <code>POST /api/replay/v2/branch</code>
+        (parent_run_id, fork_seq, child_run_id).
+      </p>
+      <pre id="replay-v2-state" class="mono replay-focus">Load a run, scrub the replay slider.</pre>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
